@@ -6,6 +6,7 @@ package maelstrom
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"sync"
 )
@@ -59,7 +60,7 @@ type ErrorBody struct {
 	Code uint64 `json:"code"`
 
 	// Text is optional and may contain an explanatory message.
-	Text *string `json:"text"`
+	Text *string `json:"text,omitempty"`
 }
 
 // InitBody represents the body of an init message.
@@ -74,7 +75,7 @@ type InitBody struct {
 	NodeIDs []string `json:"node_ids"`
 }
 
-// CommonBody returns the fields that are common to all message types.
+// CommonBody returns the fields common to all message types.
 func (msg Message) CommonBody() (CommonBody, error) {
 	var body CommonBody
 	if err := json.Unmarshal(msg.Body, &body); err != nil {
@@ -130,7 +131,7 @@ func NewNode() (*Node, error) {
 
 	var reqBody InitBody
 	if err := json.Unmarshal(req.Body, &reqBody); err != nil {
-		return nil, fmt.Errorf("received message before init: %v", req)
+		return nil, fmt.Errorf("expected init message: %v", req)
 	}
 
 	// Reply with init_ok message.
@@ -196,28 +197,21 @@ func (n *Node) do(dest, typ string, payload any, inReplyTo *uint64) (uint64, err
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return 0, fmt.Errorf("encode payload: %w", err)
-	}
-
 	msgID := n.msgID
-	var body map[string]any
-	if err := json.Unmarshal(jsonPayload, &body); err != nil {
-		return 0, fmt.Errorf("decode body: %w", err)
+	common := CommonBody{
+		Type:      typ,
+		MsgID:     &msgID,
+		InReplyTo: inReplyTo,
 	}
-	body["type"] = typ
-	body["in_reply_to"] = inReplyTo
-	body["msg_id"] = msgID
-	jsonBody, err := json.Marshal(body)
+	body, err := flatten(payload, common)
 	if err != nil {
-		return 0, fmt.Errorf("encode updated body: %w", err)
+		return 0, fmt.Errorf("flatten: %w", err)
 	}
 
 	msg := Message{
 		Src:  n.id,
 		Dest: dest,
-		Body: jsonBody,
+		Body: body,
 	}
 	if err := Send(msg); err != nil {
 		return 0, fmt.Errorf("send: %w", err)
@@ -227,14 +221,13 @@ func (n *Node) do(dest, typ string, payload any, inReplyTo *uint64) (uint64, err
 	return msgID, nil
 }
 
-// Handle registers the handler for messages of specified type. If typ
-// is an empty string, all message types are matched.
+// Handle registers the handler for messages of the specified type.
 func (n *Node) Handle(typ string, handler Handler) {
 	n.handlers[typ] = handler
 }
 
-// HandleFunc registers the handler function for messages of specified
-// type. If typ is an empty string, all message types are matched.
+// HandleFunc registers the handler function for messages of the
+// specified type.
 func (n *Node) HandleFunc(typ string, handler HandlerFunc) {
 	n.handlers[typ] = handler
 }
@@ -246,12 +239,6 @@ func (n *Node) Serve() error {
 		if err != nil {
 			return fmt.Errorf("recv: %w", err)
 		}
-
-		if h, ok := n.handlers[""]; ok {
-			go h.ServeMessage(msg)
-			continue
-		}
-
 		common, err := msg.CommonBody()
 		if err != nil {
 			return fmt.Errorf("decode common body: %w", err)
@@ -260,4 +247,41 @@ func (n *Node) Serve() error {
 			go h.ServeMessage(msg)
 		}
 	}
+}
+
+// convToMap converts the provided value to map[string]any.
+func convToMap(v any) (map[string]any, error) {
+	if m, ok := v.(map[string]any); ok {
+		return m, nil
+	}
+
+	jsonV, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("JSON marshal: %w", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(jsonV, &m); err != nil {
+		return nil, fmt.Errorf("JSON unmarshal: %w", err)
+	}
+	return m, nil
+}
+
+// flatten marshals the provided values after flattening them. When a
+// key in src is already present in dst, the value in dst will be
+// overwritten by the value associated with the key in src.
+func flatten(dst, src any) (json.RawMessage, error) {
+	mdst, err := convToMap(dst)
+	if err != nil {
+		return nil, fmt.Errorf("convert dst to map: %w", err)
+	}
+	msrc, err := convToMap(src)
+	if err != nil {
+		return nil, fmt.Errorf("convert src to map: %w", err)
+	}
+	maps.Copy(mdst, msrc)
+	raw, err := json.Marshal(mdst)
+	if err != nil {
+		return nil, fmt.Errorf("JSON marshal: %w", err)
+	}
+	return raw, nil
 }
