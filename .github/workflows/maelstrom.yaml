@@ -1,0 +1,29 @@
+name: Maelstrom
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  maelstrom:
+    name: Maelstrom
+    runs-on: ubuntu-latest
+    env:
+      MAELSTROM_VERSION: v0.2.3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Remove Go problem matchers
+        run: echo "::remove-matcher owner=go::"
+      - name: Install Maelstrom prerequisites
+        run: sudo apt-get install --no-install-recommends graphviz gnuplot
+      - name: Install Maelstrom
+        run: |
+          curl -sSfL "https://github.com/jepsen-io/maelstrom/releases/download/${MAELSTROM_VERSION}/maelstrom.tar.bz2" | sudo tar -xj -C /opt
+          echo /opt/maelstrom >> "${GITHUB_PATH}"
+      - name: 'Challenge #1: Echo'
+        run: make echo
+      - name: 'Challenge #2: Unique ID Generation'
+        run: make uid
