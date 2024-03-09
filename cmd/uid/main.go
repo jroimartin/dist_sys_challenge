@@ -1,4 +1,6 @@
-// Uid solves [challenge 2: Unique ID Generation].
+// Copyright 2024 Roi Martin
+
+// Uid solves Fly.io [challenge 2: Unique ID Generation].
 //
 // [challenge 2: Unique ID Generation]: https://fly.io/dist-sys/2/
 package main
@@ -6,6 +8,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,48 +18,38 @@ import (
 )
 
 func main() {
-	n, err := maelstrom.NewNode()
-	if err != nil {
-		log.Fatalf("new node: %v", err)
-	}
-	gen, err := newUIDGenerator(n.ID())
-	if err != nil {
-		log.Printf("handler: new UID generator: %v", err)
-	}
-	n.HandleFunc("generate", func(msg maelstrom.Message) {
-		payload := map[string]string{"id": gen.uid()}
-		if err := n.Reply(msg, "generate_ok", payload); err != nil {
-			log.Printf("generate: reply: %v", err)
-		}
-	})
+	n := maelstrom.NewNode(os.Stdin, os.Stdout)
+	n.Handle("generate", newUIDGenerator())
 	log.Fatalln(n.Serve())
 }
 
 type uidGenerator struct {
-	nodeNum uint64
-
-	mu  sync.Mutex
-	ctr uint64
+	mu          *sync.Mutex
+	initialized bool
+	nodeNum     uint64
+	ctr         uint64
 }
 
-func newUIDGenerator(nodeID string) (*uidGenerator, error) {
-	after, found := strings.CutPrefix(nodeID, "n")
-	if !found {
-		return nil, fmt.Errorf("invalid node ID: %v", nodeID)
-	}
-	num, err := strconv.ParseUint(after, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid node number: %v", num)
-	}
-	gen := &uidGenerator{
-		nodeNum: num,
-	}
-	return gen, nil
+func newUIDGenerator() *uidGenerator {
+	return &uidGenerator{mu: new(sync.Mutex)}
 }
 
-func (gen *uidGenerator) uid() string {
+func (gen *uidGenerator) uid(nodeID string) (string, error) {
 	gen.mu.Lock()
 	defer gen.mu.Unlock()
+
+	if !gen.initialized {
+		after, found := strings.CutPrefix(nodeID, "n")
+		if !found {
+			return "", fmt.Errorf("invalid node ID: %v", nodeID)
+		}
+		num, err := strconv.ParseUint(after, 10, 64)
+		if err != nil {
+			return "", fmt.Errorf("invalid node number: %v", num)
+		}
+		gen.nodeNum = num
+		gen.initialized = true
+	}
 
 	now := uint64(time.Now().UnixNano())
 
@@ -67,5 +60,18 @@ func (gen *uidGenerator) uid() string {
 
 	gen.ctr++
 
-	return strconv.FormatUint(uid, 10)
+	return strconv.FormatUint(uid, 10), nil
+}
+
+func (gen *uidGenerator) ServeMessage(n *maelstrom.Node, msg maelstrom.Message) {
+	uid, err := gen.uid(n.ID())
+	if err != nil {
+		log.Printf("error: generate: uid: %v", err)
+		return
+	}
+
+	payload := map[string]string{"id": uid}
+	if err := n.Reply(msg, "generate_ok", payload); err != nil {
+		log.Printf("error: generate: reply: %v", err)
+	}
 }
