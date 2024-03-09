@@ -1,0 +1,38 @@
+linters:
+  enable:
+    - gci
+    - godot
+    - gofmt
+    - goheader
+    - misspell
+    - revive
+    - whitespace
+    - unparam
+linters-settings:
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/jroimartin/maelstrom)
+    custom-order: true
+  goheader:
+    values:
+      const:
+        HOLDER: Roi Martin
+      regexp:
+        ANY-YEAR: \d{4}
+    template: |-
+      Copyright {{ ANY-YEAR }} {{ HOLDER }}
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-use-default: false
+  exclude-rules:
+    - linters:
+        - errcheck
+      text: 'Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked'
+    - linters:
+        - revive
+      text: 'unused-parameter: parameter ''.*'' seems to be unused'
+run:
+  timeout: 5m
