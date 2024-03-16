@@ -178,6 +178,10 @@ func (n *Node) HandleFunc(typ string, handler HandlerFunc) {
 	n.Handle(typ, handler)
 }
 
+// testHookNodeServe is executed after every message received by the
+// Node if not nil. It is set by tests.
+var testHookNodeServe func(*Node, Message)
+
 // Serve starts serving messages.
 func (n *Node) Serve() error {
 	if err := n.init(); err != nil {
@@ -189,6 +193,11 @@ func (n *Node) Serve() error {
 		if err := json.Unmarshal(n.scanner.Bytes(), &msg); err != nil {
 			return fmt.Errorf("unmarshal: %w", err)
 		}
+
+		if testHookNodeServe != nil {
+			testHookNodeServe(n, msg)
+		}
+
 		common, err := msg.CommonBody()
 		if err != nil {
 			return fmt.Errorf("common body: %w", err)
