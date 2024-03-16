@@ -23,7 +23,9 @@ jobs:
         run: |
           curl -sSfL "https://github.com/jepsen-io/maelstrom/releases/download/${MAELSTROM_VERSION}/maelstrom.tar.bz2" | sudo tar -xj -C /opt
           echo /opt/maelstrom >> "${GITHUB_PATH}"
-      - name: 'Challenge #1: Echo'
+      - name: 'Fly.io challenge 1: Echo'
         run: make echo
-      - name: 'Challenge #2: Unique ID Generation'
+      - name: 'Fly.io challenge 2: Unique ID Generation'
         run: make uid
+      - name: 'Fly.io challenge 3: Broadcast'
+        run: make broadcast
