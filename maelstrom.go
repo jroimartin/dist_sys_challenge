@@ -226,6 +226,18 @@ func (n *Node) init() error {
 		return fmt.Errorf("unexpected message type: %v", reqBody.Type)
 	}
 
+	if reqBody.NodeID == "" {
+		return fmt.Errorf("missing node_id")
+	}
+
+	if reqBody.NodeIDs == nil {
+		return fmt.Errorf("missing node_ids")
+	}
+
+	if req.Dest != reqBody.NodeID {
+		return fmt.Errorf("dest and node_id mismatch")
+	}
+
 	// Send init_ok message.
 	msgID := n.msgID.Add(1)
 	respBody := CommonBody{
