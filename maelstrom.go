@@ -109,6 +109,11 @@ func (msg Message) CommonBody() (CommonBody, error) {
 	return body, nil
 }
 
+// String returns the string representation of the message.
+func (msg Message) String() string {
+	return fmt.Sprintf(`{"src": %q, "dest": %q, body: %q}`, msg.Src, msg.Dest, msg.Body)
+}
+
 // Node represents a cluster node.
 type Node struct {
 	// id is the identifier assigned to the node.
@@ -173,6 +178,10 @@ func (n *Node) HandleFunc(typ string, handler HandlerFunc) {
 	n.Handle(typ, handler)
 }
 
+// testHookNodeServe is executed after every message received by the
+// Node if not nil. It is set by tests.
+var testHookNodeServe func(*Node, Message)
+
 // Serve starts serving messages.
 func (n *Node) Serve() error {
 	if err := n.init(); err != nil {
@@ -184,6 +193,11 @@ func (n *Node) Serve() error {
 		if err := json.Unmarshal(n.scanner.Bytes(), &msg); err != nil {
 			return fmt.Errorf("unmarshal: %w", err)
 		}
+
+		if testHookNodeServe != nil {
+			testHookNodeServe(n, msg)
+		}
+
 		common, err := msg.CommonBody()
 		if err != nil {
 			return fmt.Errorf("common body: %w", err)
@@ -226,23 +240,23 @@ func (n *Node) init() error {
 		return fmt.Errorf("unexpected message type: %v", reqBody.Type)
 	}
 
+	if reqBody.NodeID == "" {
+		return fmt.Errorf("missing node_id")
+	}
+
+	if reqBody.NodeIDs == nil {
+		return fmt.Errorf("missing node_ids")
+	}
+
+	if req.Dest != reqBody.NodeID {
+		return fmt.Errorf("dest and node_id mismatch")
+	}
+
 	// Send init_ok message.
 	msgID := n.msgID.Add(1)
-	respBody := CommonBody{
-		Type:      "init_ok",
-		MsgID:     &msgID,
-		InReplyTo: reqBody.MsgID,
-	}
-
-	jsonRespBody, err := json.Marshal(respBody)
+	resp, err := NewMessage(req.Src, reqBody.NodeID, "init_ok", nil, &msgID, reqBody.MsgID)
 	if err != nil {
-		return fmt.Errorf("marshal response body: %w", err)
-	}
-
-	resp := Message{
-		Src:  reqBody.NodeID,
-		Dest: req.Src,
-		Body: jsonRespBody,
+		return fmt.Errorf("new response: %w", err)
 	}
 	if err := n.enc.Encode(resp); err != nil {
 		return fmt.Errorf("encode response: %w", err)
