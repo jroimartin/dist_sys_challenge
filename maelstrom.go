@@ -240,21 +240,9 @@ func (n *Node) init() error {
 
 	// Send init_ok message.
 	msgID := n.msgID.Add(1)
-	respBody := CommonBody{
-		Type:      "init_ok",
-		MsgID:     &msgID,
-		InReplyTo: reqBody.MsgID,
-	}
-
-	jsonRespBody, err := json.Marshal(respBody)
+	resp, err := NewMessage(req.Src, reqBody.NodeID, "init_ok", nil, &msgID, reqBody.MsgID)
 	if err != nil {
-		return fmt.Errorf("marshal response body: %w", err)
-	}
-
-	resp := Message{
-		Src:  reqBody.NodeID,
-		Dest: req.Src,
-		Body: jsonRespBody,
+		return fmt.Errorf("new response: %w", err)
 	}
 	if err := n.enc.Encode(resp); err != nil {
 		return fmt.Errorf("encode response: %w", err)
