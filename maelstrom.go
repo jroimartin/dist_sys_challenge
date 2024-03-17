@@ -109,6 +109,11 @@ func (msg Message) CommonBody() (CommonBody, error) {
 	return body, nil
 }
 
+// String returns the string representation of the message.
+func (msg Message) String() string {
+	return fmt.Sprintf(`{"src": %q, "dest": %q, body: %q}`, msg.Src, msg.Dest, msg.Body)
+}
+
 // Node represents a cluster node.
 type Node struct {
 	// id is the identifier assigned to the node.
