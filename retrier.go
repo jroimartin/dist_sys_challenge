@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// A Retrier resends the requests waiting for response.
+// A Retrier resends requests.
 type Retrier struct {
 	// node is the cluster node tracking the requests.
 	node *Node
