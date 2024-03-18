@@ -71,7 +71,7 @@ func (gen *uidGenerator) ServeMessage(n *maelstrom.Node, msg maelstrom.Message) 
 	}
 
 	payload := map[string]string{"id": uid}
-	if err := n.Reply(msg, "generate_ok", payload); err != nil {
+	if _, err := n.Reply(msg, "generate_ok", payload); err != nil {
 		log.Printf("error: generate: reply: %v", err)
 	}
 }

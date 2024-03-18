@@ -15,7 +15,7 @@ import (
 func main() {
 	n := maelstrom.NewNode(os.Stdin, os.Stdout)
 	n.HandleFunc("echo", func(n *maelstrom.Node, req maelstrom.Message) {
-		if err := n.Reply(req, "echo_ok", req.Body); err != nil {
+		if _, err := n.Reply(req, "echo_ok", req.Body); err != nil {
 			log.Printf("error: echo: reply: %v", err)
 		}
 	})

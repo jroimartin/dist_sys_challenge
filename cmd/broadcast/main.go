@@ -64,7 +64,7 @@ func (b *broadcaster) HandleBroadcast(n *maelstrom.Node, msg maelstrom.Message) 
 
 	b.messages = append(b.messages, body["message"])
 
-	if err := n.Reply(msg, "broadcast_ok", nil); err != nil {
+	if _, err := n.Reply(msg, "broadcast_ok", nil); err != nil {
 		log.Printf("error: broadcast: reply: %v", err)
 		return
 	}
@@ -85,7 +85,7 @@ func (b *broadcaster) HandleRead(n *maelstrom.Node, msg maelstrom.Message) {
 	payload := map[string][]json.RawMessage{
 		"messages": b.messages,
 	}
-	if err := n.Reply(msg, "read_ok", payload); err != nil {
+	if _, err := n.Reply(msg, "read_ok", payload); err != nil {
 		log.Printf("error: read: reply: %v", err)
 	}
 }
@@ -109,7 +109,7 @@ func (b *broadcaster) HandleTopology(n *maelstrom.Node, msg maelstrom.Message) {
 	}
 	b.neighbors = neighbors
 
-	if err := n.Reply(msg, "topology_ok", nil); err != nil {
+	if _, err := n.Reply(msg, "topology_ok", nil); err != nil {
 		log.Printf("error: topology: reply: %v", err)
 	}
 }
@@ -125,7 +125,7 @@ func (b *broadcaster) HandleSync(n *maelstrom.Node, msg maelstrom.Message) {
 	}
 	b.messages = append(b.messages, payload.Message)
 
-	if err := n.Reply(msg, "sync_ok", nil); err != nil {
+	if _, err := n.Reply(msg, "sync_ok", nil); err != nil {
 		log.Printf("error: sync: reply: %v", err)
 	}
 
