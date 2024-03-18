@@ -3,6 +3,7 @@
 package maelstrom
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -51,12 +52,16 @@ func NewRetrier(node *Node, wt, rt time.Duration) *Retrier {
 }
 
 // Retry starts handling pending requests.
-func (r *Retrier) Retry() {
+func (r *Retrier) Retry(ctx context.Context) {
 	for {
-		if err := r.retryReqs(); err != nil {
-			log.Printf("maelstrom: retry error: %v", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(r.retryTime):
+			if err := r.retryReqs(); err != nil {
+				log.Printf("maelstrom: retry error: %v", err)
+			}
 		}
-		time.Sleep(r.retryTime)
 	}
 }
 

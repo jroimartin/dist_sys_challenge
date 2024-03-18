@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -47,7 +48,7 @@ func newBroadcaster(node *maelstrom.Node, retrier *maelstrom.Retrier) *broadcast
 		retrier: retrier,
 	}
 	if retrier != nil {
-		go retrier.Retry()
+		go retrier.Retry(context.TODO())
 	}
 	return b
 }
