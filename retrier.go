@@ -23,7 +23,7 @@ type Retrier struct {
 	retryTime time.Duration
 
 	// mu protects the fields below.
-	mu *sync.Mutex
+	mu sync.Mutex
 
 	// pending contains the requests waiting for response.
 	pending map[uint64]pendingReq
@@ -46,7 +46,6 @@ func NewRetrier(node *Node, wt, rt time.Duration) *Retrier {
 		node:      node,
 		waitTime:  wt,
 		retryTime: rt,
-		mu:        new(sync.Mutex),
 		pending:   make(map[uint64]pendingReq),
 	}
 }

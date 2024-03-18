@@ -19,19 +19,15 @@ import (
 
 func main() {
 	n := maelstrom.NewNode(os.Stdin, os.Stdout)
-	n.Handle("generate", newUIDGenerator())
+	n.Handle("generate", &uidGenerator{})
 	log.Fatalln(n.Serve())
 }
 
 type uidGenerator struct {
-	mu          *sync.Mutex
+	mu          sync.Mutex
 	initialized bool
 	nodeNum     uint64
 	ctr         uint64
-}
-
-func newUIDGenerator() *uidGenerator {
-	return &uidGenerator{mu: new(sync.Mutex)}
 }
 
 func (gen *uidGenerator) uid(nodeID string) (string, error) {

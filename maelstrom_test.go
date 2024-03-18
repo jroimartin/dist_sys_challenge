@@ -259,7 +259,7 @@ func TestNode_init(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			stdin := bytes.NewBufferString(tt.input)
-			stdout := new(bytes.Buffer)
+			stdout := &bytes.Buffer{}
 
 			n := NewNode(stdin, stdout)
 
@@ -284,7 +284,7 @@ func TestNode_ID(t *testing.T) {
 	)
 
 	stdin := bytes.NewBufferString(input)
-	stdout := new(bytes.Buffer)
+	stdout := &bytes.Buffer{}
 
 	n := NewNode(stdin, stdout)
 
@@ -302,7 +302,7 @@ func TestNode_Cluster(t *testing.T) {
 	want := []string{"n1", "n2", "n3"}
 
 	stdin := bytes.NewBufferString(input)
-	stdout := new(bytes.Buffer)
+	stdout := &bytes.Buffer{}
 
 	n := NewNode(stdin, stdout)
 
@@ -321,7 +321,7 @@ func TestNode_Serve_init_error(t *testing.T) {
 	const input = `{"src": "c1", "dest": "n1", "body": {"type": "t1", "msg_id": 124, "k1": "v1"}}`
 
 	stdin := bytes.NewBufferString(input)
-	stdout := new(bytes.Buffer)
+	stdout := &bytes.Buffer{}
 
 	n := NewNode(stdin, stdout)
 
@@ -342,14 +342,15 @@ func TestNode_Serve_HandleFunc(t *testing.T) {
 	}
 
 	stdin := bytes.NewBufferString(input)
-	stdout := new(bytes.Buffer)
+	stdout := &bytes.Buffer{}
 
 	n := NewNode(stdin, stdout)
 
-	mu := new(sync.Mutex)
-	var got []string
-
-	wg := new(sync.WaitGroup)
+	var (
+		wg  sync.WaitGroup
+		mu  sync.Mutex
+		got []string
+	)
 
 	handler := func(name, key string) func(*Node, Message) {
 		return func(_ *Node, msg Message) {
@@ -392,11 +393,11 @@ func TestNode_Send(t *testing.T) {
 	}
 
 	stdin := bytes.NewBufferString(input)
-	stdout := new(bytes.Buffer)
+	stdout := &bytes.Buffer{}
 
 	n := NewNode(stdin, stdout)
 
-	wg := new(sync.WaitGroup)
+	var wg sync.WaitGroup
 
 	n.HandleFunc("t1", func(n *Node, _ Message) {
 		defer wg.Done()
@@ -421,10 +422,7 @@ func TestNode_Send(t *testing.T) {
 }
 
 func TestNode_Send_error(t *testing.T) {
-	stdin := new(bytes.Buffer)
-	stdout := new(bytes.Buffer)
-
-	n := NewNode(stdin, stdout)
+	n := NewNode(nil, nil)
 
 	if _, err := n.Send("c1", "t1", "invalid"); err == nil {
 		t.Error("expected send error when payload is invalid")
@@ -442,11 +440,11 @@ func TestNode_Reply(t *testing.T) {
 	}
 
 	stdin := bytes.NewBufferString(input)
-	stdout := new(bytes.Buffer)
+	stdout := &bytes.Buffer{}
 
 	n := NewNode(stdin, stdout)
 
-	wg := new(sync.WaitGroup)
+	var wg sync.WaitGroup
 
 	n.HandleFunc("t1", func(n *Node, msg Message) {
 		defer wg.Done()
@@ -471,14 +469,7 @@ func TestNode_Reply(t *testing.T) {
 }
 
 func TestNode_Reply_error(t *testing.T) {
-	stdin := new(bytes.Buffer)
-	stdout := new(bytes.Buffer)
-
-	n := NewNode(stdin, stdout)
-
-	if _, err := n.Send("c1", "t1", "invalid"); err == nil {
-		t.Error("expected send error when payload is invalid")
-	}
+	n := NewNode(nil, nil)
 
 	validMsg := Message{
 		Src:  "c1",
@@ -486,7 +477,7 @@ func TestNode_Reply_error(t *testing.T) {
 		Body: json.RawMessage(`{"type": "t1", "msg_id": 123}`),
 	}
 	if _, err := n.Reply(validMsg, "t1_ok", "invalid"); err == nil {
-		t.Error("expected send error when payload is invalid")
+		t.Error("expected reply error when payload is invalid")
 	}
 
 	malformedMsg := Message{
@@ -494,8 +485,8 @@ func TestNode_Reply_error(t *testing.T) {
 		Dest: "n1",
 		Body: json.RawMessage(`{`),
 	}
-	if _, err := n.Reply(malformedMsg, "t1_ok", "invalid"); err == nil {
-		t.Error("expected send error when payload is invalid")
+	if _, err := n.Reply(malformedMsg, "t1_ok", map[string]string{"foo": "bar"}); err == nil {
+		t.Error("expected reply error when msg is invalid")
 	}
 }
 
@@ -512,12 +503,11 @@ func TestNode_RPC(t *testing.T) {
 	}
 
 	stdin := bytes.NewBufferString(input)
-	stdout := new(bytes.Buffer)
+	stdout := &bytes.Buffer{}
 
 	n := NewNode(stdin, stdout)
 
-	wg := new(sync.WaitGroup)
-	cont := make(chan bool)
+	var wg sync.WaitGroup
 
 	respHandler := func(n *Node, _ Message) {
 		defer wg.Done()
@@ -526,6 +516,9 @@ func TestNode_RPC(t *testing.T) {
 			t.Errorf("respHandler: send error: %v", err)
 		}
 	}
+
+	cont := make(chan bool)
+
 	handler := func(n *Node, _ Message) {
 		defer wg.Done()
 
@@ -576,11 +569,12 @@ func TestNode_RPC_nil_handler(t *testing.T) {
 	}
 
 	stdin := bytes.NewBufferString(input)
-	stdout := new(bytes.Buffer)
+	stdout := &bytes.Buffer{}
 
 	n := NewNode(stdin, stdout)
 
-	wg := new(sync.WaitGroup)
+	var wg sync.WaitGroup
+
 	cont := make(chan bool)
 
 	handler := func(n *Node, _ Message) {
@@ -622,13 +616,10 @@ func TestNode_RPC_nil_handler(t *testing.T) {
 }
 
 func TestNode_RPC_error(t *testing.T) {
-	stdin := new(bytes.Buffer)
-	stdout := new(bytes.Buffer)
-
-	n := NewNode(stdin, stdout)
+	n := NewNode(nil, nil)
 
 	if _, err := n.RPC("c1", "t1", "invalid", nil); err == nil {
-		t.Error("expected send error when payload is invalid")
+		t.Error("expected RPC error when payload is invalid")
 	}
 }
 

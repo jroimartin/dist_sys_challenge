@@ -28,7 +28,7 @@ func TestRetrier(t *testing.T) {
 	}
 
 	stdin := bytes.NewBufferString(input)
-	stdout := new(bytes.Buffer)
+	stdout := &bytes.Buffer{}
 
 	node := NewNode(stdin, stdout)
 	retrier := NewRetrier(node, 500*time.Millisecond, 250*time.Millisecond)
