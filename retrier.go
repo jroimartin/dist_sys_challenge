@@ -3,6 +3,7 @@
 package maelstrom
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -23,7 +24,7 @@ type Retrier struct {
 	retryTime time.Duration
 
 	// mu protects the fields below.
-	mu *sync.Mutex
+	mu sync.Mutex
 
 	// pending contains the requests waiting for response.
 	pending map[uint64]pendingReq
@@ -46,18 +47,21 @@ func NewRetrier(node *Node, wt, rt time.Duration) *Retrier {
 		node:      node,
 		waitTime:  wt,
 		retryTime: rt,
-		mu:        new(sync.Mutex),
 		pending:   make(map[uint64]pendingReq),
 	}
 }
 
 // Retry starts handling pending requests.
-func (r *Retrier) Retry() {
+func (r *Retrier) Retry(ctx context.Context) {
 	for {
-		if err := r.retryReqs(); err != nil {
-			log.Printf("maelstrom: retry error: %v", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(r.retryTime):
+			if err := r.retryReqs(); err != nil {
+				log.Printf("maelstrom: retry error: %v", err)
+			}
 		}
-		time.Sleep(r.retryTime)
 	}
 }
 

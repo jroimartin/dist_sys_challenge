@@ -134,7 +134,7 @@ type Node struct {
 	msgID atomic.Uint64
 
 	// mu protects the fields below.
-	mu *sync.Mutex
+	mu sync.Mutex
 
 	// enc is used to encode Maelstrom messages.
 	enc *json.Encoder
@@ -149,7 +149,6 @@ func NewNode(r io.Reader, w io.Writer) *Node {
 	return &Node{
 		handlers:     make(map[string]Handler),
 		scanner:      bufio.NewScanner(r),
-		mu:           new(sync.Mutex),
 		enc:          json.NewEncoder(w),
 		respHandlers: make(map[uint64]Handler),
 	}

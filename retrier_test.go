@@ -4,8 +4,10 @@ package maelstrom
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,20 +30,22 @@ func TestRetrier(t *testing.T) {
 	}
 
 	stdin := bytes.NewBufferString(input)
-	stdout := new(bytes.Buffer)
+	stdout := &bytes.Buffer{}
 
 	node := NewNode(stdin, stdout)
 	retrier := NewRetrier(node, 500*time.Millisecond, 250*time.Millisecond)
 
-	cont := make(chan bool)
-	done := make(chan bool)
+	var wg sync.WaitGroup
 
 	respHandler := func(_ *Node, msg Message) {
+		defer wg.Done()
 		if err := retrier.Remove(msg); err != nil {
 			t.Errorf("response handler: retrier remove error: %v", err)
 		}
-		done <- true
 	}
+
+	cont := make(chan bool)
+
 	handler := func(n *Node, _ Message) {
 		msg, err := n.RPC("c1", "t2", map[string]string{"k1": "v1"}, HandlerFunc(respHandler))
 		if err != nil {
@@ -65,11 +69,19 @@ func TestRetrier(t *testing.T) {
 
 	node.HandleFunc("t1", handler)
 
-	go retrier.Retry()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		retrier.Retry(ctx)
+	}()
 	if err := node.Serve(); err != nil {
 		t.Fatalf("serve error: %v", err)
 	}
-	<-done
+	cancel()
+	wg.Wait()
 
 	if len(node.respHandlers) > 0 {
 		t.Errorf("unexpected number of response handlers: %v", len(node.respHandlers))
