@@ -285,41 +285,42 @@ func (n *Node) handleResp(reqID uint64, resp Message) {
 }
 
 // Send sends a fire-and-forget message (without identifier) to dest
-// with the specified type and payload. Send is safe to call
-// concurrently.
-func (n *Node) Send(dest, typ string, payload any) error {
+// with the specified type and payload. It returns the message that
+// has been sent. Send is safe to call concurrently.
+func (n *Node) Send(dest, typ string, payload any) (Message, error) {
 	msg, err := NewMessage(dest, n.id, typ, payload, nil, nil)
 	if err != nil {
-		return fmt.Errorf("new message: %w", err)
+		return Message{}, fmt.Errorf("new message: %w", err)
 	}
 	if err := n.Do(msg); err != nil {
-		return fmt.Errorf("do: %w", err)
+		return Message{}, fmt.Errorf("do: %w", err)
 	}
-	return nil
+	return msg, nil
 }
 
 // Reply replies to the specified request with a message with the
-// provided type and payload. Reply is safe to call concurrently.
-func (n *Node) Reply(req Message, typ string, payload any) error {
+// provided type and payload. It returns the reply that has been
+// sent. Reply is safe to call concurrently.
+func (n *Node) Reply(req Message, typ string, payload any) (Message, error) {
 	common, err := req.CommonBody()
 	if err != nil {
-		return fmt.Errorf("common body: %w", err)
+		return Message{}, fmt.Errorf("common body: %w", err)
 	}
 	msgID := n.msgID.Add(1)
 	msg, err := NewMessage(req.Src, n.id, typ, payload, &msgID, common.MsgID)
 	if err != nil {
-		return fmt.Errorf("new message: %w", err)
+		return Message{}, fmt.Errorf("new message: %w", err)
 	}
 	if err := n.Do(msg); err != nil {
-		return fmt.Errorf("do: %w", err)
+		return Message{}, fmt.Errorf("do: %w", err)
 	}
-	return nil
+	return msg, nil
 }
 
 // RPC sends an RPC request to dest with the specified type and
 // payload. The provided handler is executed when the RPC response is
-// received. It returns the RPC request. RPC is safe to call
-// concurrently.
+// received. It returns the RPC request that has been sent. RPC is
+// safe to call concurrently.
 func (n *Node) RPC(dest, typ string, payload any, handler Handler) (Message, error) {
 	msgID := n.msgID.Add(1)
 	msg, err := NewMessage(dest, n.id, typ, payload, &msgID, nil)

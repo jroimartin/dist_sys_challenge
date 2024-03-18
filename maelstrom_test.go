@@ -401,7 +401,7 @@ func TestNode_Send(t *testing.T) {
 	n.HandleFunc("t1", func(n *Node, _ Message) {
 		defer wg.Done()
 
-		if err := n.Send("c1", "t1_ok", map[string]string{"k1": "v1"}); err != nil {
+		if _, err := n.Send("c1", "t1_ok", map[string]string{"k1": "v1"}); err != nil {
 			t.Errorf("handler: send error: %v", err)
 		}
 	})
@@ -426,7 +426,7 @@ func TestNode_Send_error(t *testing.T) {
 
 	n := NewNode(stdin, stdout)
 
-	if err := n.Send("c1", "t1", "invalid"); err == nil {
+	if _, err := n.Send("c1", "t1", "invalid"); err == nil {
 		t.Error("expected send error when payload is invalid")
 	}
 }
@@ -451,7 +451,7 @@ func TestNode_Reply(t *testing.T) {
 	n.HandleFunc("t1", func(n *Node, msg Message) {
 		defer wg.Done()
 
-		if err := n.Reply(msg, "t1_ok", map[string]string{"k1": "v1"}); err != nil {
+		if _, err := n.Reply(msg, "t1_ok", map[string]string{"k1": "v1"}); err != nil {
 			t.Errorf("handler: reply error: %v", err)
 		}
 	})
@@ -476,7 +476,7 @@ func TestNode_Reply_error(t *testing.T) {
 
 	n := NewNode(stdin, stdout)
 
-	if err := n.Send("c1", "t1", "invalid"); err == nil {
+	if _, err := n.Send("c1", "t1", "invalid"); err == nil {
 		t.Error("expected send error when payload is invalid")
 	}
 
@@ -485,7 +485,7 @@ func TestNode_Reply_error(t *testing.T) {
 		Dest: "n1",
 		Body: json.RawMessage(`{"type": "t1", "msg_id": 123}`),
 	}
-	if err := n.Reply(validMsg, "t1_ok", "invalid"); err == nil {
+	if _, err := n.Reply(validMsg, "t1_ok", "invalid"); err == nil {
 		t.Error("expected send error when payload is invalid")
 	}
 
@@ -494,7 +494,7 @@ func TestNode_Reply_error(t *testing.T) {
 		Dest: "n1",
 		Body: json.RawMessage(`{`),
 	}
-	if err := n.Reply(malformedMsg, "t1_ok", "invalid"); err == nil {
+	if _, err := n.Reply(malformedMsg, "t1_ok", "invalid"); err == nil {
 		t.Error("expected send error when payload is invalid")
 	}
 }
@@ -522,7 +522,7 @@ func TestNode_RPC(t *testing.T) {
 	respHandler := func(n *Node, _ Message) {
 		defer wg.Done()
 
-		if err := n.Send("c1", "t3", nil); err != nil {
+		if _, err := n.Send("c1", "t3", nil); err != nil {
 			t.Errorf("respHandler: send error: %v", err)
 		}
 	}
