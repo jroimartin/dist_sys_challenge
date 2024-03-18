@@ -76,7 +76,6 @@ func TestRetrier(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-
 		retrier.Retry(ctx)
 	}()
 
