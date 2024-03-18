@@ -133,6 +133,9 @@ type Node struct {
 	// monotonically increased.
 	msgID atomic.Uint64
 
+	// handleGroup waits for all the handlers to finish.
+	handleGroup sync.WaitGroup
+
 	// mu protects the fields below.
 	mu sync.Mutex
 
@@ -206,12 +209,20 @@ func (n *Node) Serve() error {
 			continue
 		}
 		if h, ok := n.handlers[common.Type]; ok && h != nil {
-			go h.ServeMessage(n, msg)
+			n.handleGroup.Add(1)
+			go func() {
+				defer n.handleGroup.Done()
+				h.ServeMessage(n, msg)
+			}()
 		}
 	}
+
 	if err := n.scanner.Err(); err != nil {
 		return fmt.Errorf("scan: %w", err)
 	}
+
+	n.handleGroup.Wait()
+
 	return nil
 }
 
@@ -279,7 +290,11 @@ func (n *Node) handleResp(reqID uint64, resp Message) {
 	delete(n.respHandlers, reqID)
 
 	if h != nil {
-		go h.ServeMessage(n, resp)
+		n.handleGroup.Add(1)
+		go func() {
+			defer n.handleGroup.Done()
+			h.ServeMessage(n, resp)
+		}()
 	}
 }
 
