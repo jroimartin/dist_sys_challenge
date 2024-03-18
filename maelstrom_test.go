@@ -370,7 +370,12 @@ func TestNode_Serve_HandleFunc(t *testing.T) {
 	n.HandleFunc("t1", handler("handler1", "k1"))
 	n.HandleFunc("t2", handler("handler2", "k2"))
 
+	// Wait for:
+	//
+	//   - t1 handler
+	//   - t2 handler
 	wg.Add(2)
+
 	if err := n.Serve(); err != nil {
 		t.Fatalf("serve error: %v", err)
 	}
@@ -407,7 +412,9 @@ func TestNode_Send(t *testing.T) {
 		}
 	})
 
+	// Wait for t1 handler.
 	wg.Add(1)
+
 	if err := n.Serve(); err != nil {
 		t.Fatalf("serve error: %v", err)
 	}
@@ -454,7 +461,9 @@ func TestNode_Reply(t *testing.T) {
 		}
 	})
 
+	// Wait for t1 handler.
 	wg.Add(1)
+
 	if err := n.Serve(); err != nil {
 		t.Fatalf("serve error: %v", err)
 	}
@@ -519,14 +528,15 @@ func TestNode_RPC(t *testing.T) {
 
 	cont := make(chan bool)
 
-	handler := func(n *Node, _ Message) {
+	n.HandleFunc("t1", func(n *Node, _ Message) {
 		defer wg.Done()
 
 		if _, err := n.RPC("c1", "t2", map[string]string{"k1": "v1"}, HandlerFunc(respHandler)); err != nil {
 			t.Errorf("handler: RPC error: %v", err)
 		}
 		cont <- true
-	}
+	})
+
 	testHookNodeServe = func(_ *Node, msg Message) {
 		common, err := msg.CommonBody()
 		if err != nil {
@@ -537,9 +547,12 @@ func TestNode_RPC(t *testing.T) {
 		}
 	}
 
-	n.HandleFunc("t1", handler)
-
+	// Wait for:
+	//
+	//   - t1 handler
+	//   - t2 response handler
 	wg.Add(2)
+
 	if err := n.Serve(); err != nil {
 		t.Fatalf("serve error: %v", err)
 	}
@@ -577,14 +590,15 @@ func TestNode_RPC_nil_handler(t *testing.T) {
 
 	cont := make(chan bool)
 
-	handler := func(n *Node, _ Message) {
+	n.HandleFunc("t1", func(n *Node, _ Message) {
 		defer wg.Done()
 
 		if _, err := n.RPC("c1", "t2", map[string]string{"k1": "v1"}, nil); err != nil {
 			t.Errorf("handler: RPC error: %v", err)
 		}
 		cont <- true
-	}
+	})
+
 	testHookNodeServe = func(_ *Node, msg Message) {
 		common, err := msg.CommonBody()
 		if err != nil {
@@ -595,9 +609,9 @@ func TestNode_RPC_nil_handler(t *testing.T) {
 		}
 	}
 
-	n.HandleFunc("t1", handler)
-
+	// Wait for t1 handler.
 	wg.Add(1)
+
 	if err := n.Serve(); err != nil {
 		t.Fatalf("serve error: %v", err)
 	}

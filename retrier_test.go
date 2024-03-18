@@ -39,6 +39,7 @@ func TestRetrier(t *testing.T) {
 
 	respHandler := func(_ *Node, msg Message) {
 		defer wg.Done()
+
 		if err := retrier.Remove(msg); err != nil {
 			t.Errorf("response handler: retrier remove error: %v", err)
 		}
@@ -46,7 +47,9 @@ func TestRetrier(t *testing.T) {
 
 	cont := make(chan bool)
 
-	handler := func(n *Node, _ Message) {
+	node.HandleFunc("t1", func(n *Node, _ Message) {
+		defer wg.Done()
+
 		msg, err := n.RPC("c1", "t2", map[string]string{"k1": "v1"}, HandlerFunc(respHandler))
 		if err != nil {
 			t.Fatalf("handler: RPC error: %v", err)
@@ -55,7 +58,8 @@ func TestRetrier(t *testing.T) {
 			t.Errorf("handler: retrier add error: %v", err)
 		}
 		cont <- true
-	}
+	})
+
 	testHookNodeServe = func(_ *Node, msg Message) {
 		common, err := msg.CommonBody()
 		if err != nil {
@@ -67,16 +71,22 @@ func TestRetrier(t *testing.T) {
 		}
 	}
 
-	node.HandleFunc("t1", handler)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	wg.Add(2)
 	go func() {
 		defer wg.Done()
+
 		retrier.Retry(ctx)
 	}()
+
+	// Wait for:
+	//
+	//   - t1 handler
+	//   - t2 response handler
+	//   - retrier
+	wg.Add(3)
+
 	if err := node.Serve(); err != nil {
 		t.Fatalf("serve error: %v", err)
 	}
